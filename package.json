@@ -10,8 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/jsbarcode": "^3.11.4",
     "dexie": "^3.2.4",
     "dexie-react-hooks": "^1.1.7",
+    "jsbarcode": "^3.11.6",
     "jsqr": "^1.4.0",
     "localforage": "^1.10.0",
     "lucide-react": "^0.344.0",

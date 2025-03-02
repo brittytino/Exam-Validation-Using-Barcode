@@ -11,12 +11,14 @@ if ('serviceWorker' in navigator) {
     const isWebContainer = window.location.hostname.includes('webcontainer') || 
                           window.location.hostname.includes('stackblitz');
     
-    if (!isWebContainer && process.env.NODE_ENV === 'production') {
+    // Skip service worker registration in WebContainer environment
+    if (isWebContainer) {
+      console.log('Service Worker not registered: running in WebContainer environment');
+    } else {
+      // For non-WebContainer environments, register the service worker
       navigator.serviceWorker.register('/sw.js').catch(error => {
         console.error('Service worker registration failed:', error);
       });
-    } else {
-      console.log('Service Worker not registered: running in development or WebContainer environment');
     }
   });
 } else {

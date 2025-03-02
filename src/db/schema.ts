@@ -47,10 +47,23 @@ export interface User {
   syncedAt?: Date;
 }
 
+export interface ExamMarks {
+  id: string;
+  examId: string;
+  studentId: string;
+  marks: string; // JSON stringified marks data
+  totalMarks: number;
+  recordedBy: string;
+  recordedAt: Date;
+  syncStatus?: 'pending' | 'synced' | 'failed';
+  syncedAt?: Date;
+  notes?: string;
+}
+
 export interface SyncQueue {
   id: string;
   action: 'create' | 'update' | 'delete';
-  table: 'exams' | 'barcodes' | 'scanLogs' | 'users';
+  table: 'exams' | 'barcodes' | 'scanLogs' | 'users' | 'examMarks';
   recordId: string;
   data: string; // JSON stringified data
   attempts: number;
@@ -64,6 +77,7 @@ class ExamDatabase extends Dexie {
   barcodes!: Table<Barcode>;
   scanLogs!: Table<ScanLog>;
   users!: Table<User>;
+  examMarks!: Table<ExamMarks>;
   syncQueue!: Table<SyncQueue>;
 
   constructor() {
@@ -73,6 +87,7 @@ class ExamDatabase extends Dexie {
       barcodes: 'id, code, examId, studentId, isValid',
       scanLogs: 'id, barcodeId, examId, studentId, status, scannedAt, syncStatus',
       users: 'id, username, role',
+      examMarks: 'id, examId, studentId, totalMarks, recordedAt, syncStatus',
       syncQueue: 'id, action, table, recordId, attempts, createdAt'
     });
   }
@@ -83,7 +98,7 @@ export const db = new ExamDatabase();
 // Helper functions for database operations
 export async function addToSyncQueue(
   action: 'create' | 'update' | 'delete',
-  table: 'exams' | 'barcodes' | 'scanLogs' | 'users',
+  table: 'exams' | 'barcodes' | 'scanLogs' | 'users' | 'examMarks',
   recordId: string,
   data: any
 ): Promise<void> {
@@ -133,4 +148,38 @@ export async function validateBarcode(code: string): Promise<{
   }
   
   return { isValid: true, barcode, exam, message: 'Barcode is valid' };
+}
+
+// Function to save exam marks
+export async function saveExamMarks(
+  examId: string,
+  studentId: string,
+  marksData: any,
+  totalMarks: number,
+  recordedBy: string,
+  notes?: string
+): Promise<string> {
+  try {
+    const id = crypto.randomUUID();
+    
+    const examMarks: ExamMarks = {
+      id,
+      examId,
+      studentId,
+      marks: JSON.stringify(marksData),
+      totalMarks,
+      recordedBy,
+      recordedAt: new Date(),
+      syncStatus: 'pending',
+      notes
+    };
+    
+    await db.examMarks.add(examMarks);
+    await addToSyncQueue('create', 'examMarks', id, examMarks);
+    
+    return id;
+  } catch (error) {
+    console.error('Error saving exam marks:', error);
+    throw new Error('Failed to save exam marks');
+  }
 }

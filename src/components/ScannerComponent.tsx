@@ -1,27 +1,37 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Camera, AlertTriangle, Check, X, RefreshCw } from 'lucide-react';
+import { db, validateBarcode } from '../db/schema';
 import { BarcodeScanner, processScan } from '../utils/scanner';
-import { Camera, X, Check, AlertTriangle, RefreshCw } from 'lucide-react';
 import { getCurrentUser } from '../utils/auth';
 
 interface ScanResult {
-  code: string;
   isValid: boolean;
   message: string;
+  code: string;
   studentId?: string;
+  examId?: string;
   examName?: string;
 }
 
 const ScannerComponent: React.FC = () => {
+  const [scanning, setScanning] = useState(false);
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCamera, setSelectedCamera] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [showMarkEntry, setShowMarkEntry] = useState(false);
+  const [marks, setMarks] = useState({
+    java: { q1: '', q2: '', q3: '', total: '0' },
+    cpp: { q1: '', q2: '', q3: '', total: '0' },
+    python: { q1: '', q2: '', q3: '', total: '0' },
+    javascript: { q1: '', q2: '', q3: '', total: '0' },
+    os: { q1: '', q2: '', q3: '', total: '0' }
+  });
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [scanning, setScanning] = useState(false);
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
-  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
-  const [selectedCamera, setSelectedCamera] = useState<string>('');
-  const [loadingCameras, setLoadingCameras] = useState(false);
+  const scannerRef = useRef<BarcodeScanner | null>(null);
 
   useEffect(() => {
     // Get current user
@@ -34,169 +44,162 @@ const ScannerComponent: React.FC = () => {
     
     fetchUser();
     
-    // Check for camera permissions
-    checkCameraPermission();
+    // Get available cameras
+    const getCameras = async () => {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+          setError('Media devices API not supported in this browser');
+          return;
+        }
+        
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        
+        setCameras(videoDevices);
+        
+        if (videoDevices.length > 0) {
+          setSelectedCamera(videoDevices[0].deviceId);
+        }
+      } catch (err) {
+        console.error('Error getting cameras:', err);
+        setError('Failed to access camera list');
+      }
+    };
     
-    // List available cameras
-    listCameras();
+    getCameras();
     
     // Clean up on unmount
     return () => {
-      if (scanner.current) {
-        scanner.current.stop();
+      if (scannerRef.current) {
+        scannerRef.current.stop();
       }
     };
   }, []);
 
-  const scanner = useRef(
-    new BarcodeScanner({
-      onDetected: (result: string) => {
-        setScanning(false);
-        handleScanComplete(result);
-      },
-      onError: (error: Error) => {
-        setScanning(false);
-        setError(error.message);
-      },
-      onStart: () => {
-        setScanning(true);
-        setError(null);
-        setScanResult(null);
-      },
-      onStop: () => {
-        setScanning(false);
-      }
-    })
-  );
-
-  const checkCameraPermission = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      setCameraPermission(true);
-      
-      // Stop the stream immediately after checking permission
-      stream.getTracks().forEach(track => track.stop());
-    } catch (error) {
-      console.error('Camera permission error:', error);
-      setCameraPermission(false);
-    }
-  };
-
-  const listCameras = async () => {
-    try {
-      setLoadingCameras(true);
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(device => device.kind === 'videoinput');
-      setAvailableCameras(videoDevices);
-      
-      // Select the first camera by default (usually the back camera on mobile)
-      if (videoDevices.length > 0) {
-        // Try to find a back camera first (environment facing)
-        const backCamera = videoDevices.find(device => 
-          device.label.toLowerCase().includes('back') || 
-          device.label.toLowerCase().includes('rear')
-        );
-        
-        setSelectedCamera(backCamera ? backCamera.deviceId : videoDevices[0].deviceId);
-      }
-    } catch (error) {
-      console.error('Error listing cameras:', error);
-    } finally {
-      setLoadingCameras(false);
-    }
-  };
-
-  const startScanning = () => {
+  const startScanning = async () => {
+    setError(null);
+    setScanResult(null);
+    
     if (!videoRef.current || !canvasRef.current) {
       setError('Camera elements not initialized. Please refresh the page and try again.');
       return;
     }
+    
+    try {
+      // Create scanner instance if it doesn't exist
+      if (!scannerRef.current) {
+        scannerRef.current = new BarcodeScanner({
+          onDetected: handleCodeDetected,
+          onError: (err) => {
+            console.error('Scanner error:', err);
+            setError(err.message);
+            setScanning(false);
+          },
+          onStart: () => {
+            setScanning(true);
+          },
+          onStop: () => {
+            setScanning(false);
+          }
+        });
+      }
+      
+      // Start scanning with selected camera
+      await scannerRef.current.start(
+        videoRef.current,
+        canvasRef.current,
+        selectedCamera
+      );
+    } catch (err) {
+      console.error('Error starting scanner:', err);
+      setError('Failed to start camera. Please check camera permissions and try again.');
+    }
+  };
 
+  const stopScanning = () => {
+    if (scannerRef.current) {
+      scannerRef.current.stop();
+    }
+    setScanning(false);
+  };
+
+  const handleCodeDetected = async (code: string) => {
     if (!userId) {
       setError('User not authenticated. Please log in again.');
       return;
     }
-
-    if (!cameraPermission) {
-      setError('Camera permission denied. Please allow camera access in your browser settings.');
-      return;
-    }
-
-    scanner.current.start(videoRef.current, canvasRef.current, selectedCamera);
-  };
-
-  const stopScanning = () => {
-    scanner.current.stop();
-  };
-
-  const handleScanComplete = async (code: string) => {
-    if (!userId) {
-      setError('User not authenticated');
-      return;
-    }
-
+    
     try {
-      // Get geolocation if available
-      let location: string | undefined;
+      // Process the scanned barcode
+      const result = await processScan(code, userId);
       
-      try {
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            timeout: 5000,
-            maximumAge: 0
-          });
+      if (result.success) {
+        // Get barcode details
+        const validationResult = await validateBarcode(code);
+        const barcode = validationResult.barcode;
+        
+        setScanResult({
+          isValid: validationResult.isValid,
+          message: validationResult.message,
+          code: code,
+          studentId: barcode?.studentId,
+          examId: barcode?.examId,
+          examName: result.examName
         });
         
-        location = `${position.coords.latitude},${position.coords.longitude}`;
-      } catch (error) {
-        console.warn('Geolocation not available:', error);
+        // If valid, show mark entry form
+        if (validationResult.isValid) {
+          setShowMarkEntry(true);
+        }
+      } else {
+        setScanResult({
+          isValid: false,
+          message: result.message,
+          code: code
+        });
       }
-      
-      // Process the scan
-      const result = await processScan(code, userId, location);
-      
-      setScanResult({
-        code,
-        isValid: result.success && result.scanLog?.status === 'valid',
-        message: result.message,
-        studentId: result.scanLog?.studentId,
-        examName: result.examName
-      });
-    } catch (error) {
-      setError('Failed to process scan');
-      console.error('Scan processing error:', error);
+    } catch (err) {
+      console.error('Error processing scan:', err);
+      setError('Failed to process scan. Please try again.');
     }
   };
 
-  const handleManualEntry = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = event.target as HTMLFormElement;
-    const codeInput = form.elements.namedItem('manualCode') as HTMLInputElement;
+  const handleManualEntry = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     
-    if (codeInput && codeInput.value) {
-      handleScanComplete(codeInput.value);
-      codeInput.value = '';
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const code = formData.get('manualCode') as string;
+    
+    if (!code) {
+      setError('Please enter a barcode');
+      return;
     }
+    
+    await handleCodeDetected(code);
+  };
+
+  const handleCameraChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedCamera(e.target.value);
   };
 
   const renderCameraSelector = () => {
-    if (availableCameras.length <= 1) return null;
+    if (cameras.length <= 1) return null;
     
     return (
-      <div className="mb-4">
+      <div className="w-full mb-4">
         <label htmlFor="camera-select" className="block text-sm font-medium text-gray-700 mb-1">
           Select Camera
         </label>
         <select
           id="camera-select"
           value={selectedCamera}
-          onChange={(e) => setSelectedCamera(e.target.value)}
+          onChange={handleCameraChange}
           className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          disabled={scanning || loadingCameras}
         >
-          {availableCameras.map((camera) => (
+          {cameras.map((camera) => (
             <option key={camera.deviceId} value={camera.deviceId}>
-              {camera.label || `Camera ${camera.deviceId.substring(0, 5)}...`}
+              {camera.label || `Camera ${cameras.indexOf(camera) + 1}`}
             </option>
           ))}
         </select>
@@ -204,47 +207,211 @@ const ScannerComponent: React.FC = () => {
     );
   };
 
-  if (cameraPermission === false) {
-    return (
-      <div className="flex flex-col items-center">
-        <div className="w-full max-w-md bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <AlertTriangle size={48} className="mx-auto text-red-500 mb-4" />
-          <h3 className="text-lg font-semibold text-red-700 mb-2">Camera Access Denied</h3>
-          <p className="text-red-600 mb-4">
-            This application needs camera access to scan barcodes. Please allow camera access in your browser settings.
-          </p>
-          <button
-            onClick={checkCameraPermission}
-            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const calculateTotal = (subject) => {
+    const q1 = parseInt(marks[subject].q1) || 0;
+    const q2 = parseInt(marks[subject].q2) || 0;
+    const q3 = parseInt(marks[subject].q3) || 0;
+    return q1 + q2 + q3;
+  };
+
+  const handleMarkChange = (subject, question, value) => {
+    // Validate input to ensure it's within range
+    let parsedValue = parseInt(value) || 0;
+    
+    // Set max values based on question type
+    const maxValues = {
+      q1: 10, // 10 mark * 1 = 10
+      q2: 16, // 4 mark * 4 = 16
+      q3: 24  // 3 mark * 8 = 24
+    };
+    
+    if (parsedValue > maxValues[question]) {
+      parsedValue = maxValues[question];
+    }
+    
+    if (parsedValue < 0) {
+      parsedValue = 0;
+    }
+    
+    setMarks(prevMarks => {
+      const newMarks = {
+        ...prevMarks,
+        [subject]: {
+          ...prevMarks[subject],
+          [question]: parsedValue.toString()
+        }
+      };
+      
+      // Calculate and update total
+      newMarks[subject].total = (
+        parseInt(newMarks[subject].q1) || 0 +
+        parseInt(newMarks[subject].q2) || 0 +
+        parseInt(newMarks[subject].q3) || 0
+      ).toString();
+      
+      return newMarks;
+    });
+  };
+
+  const handleSubmitMarks = async () => {
+    if (!scanResult || !scanResult.examId || !scanResult.studentId) {
+      setError('Missing exam or student information');
+      return;
+    }
+    
+    try {
+      // Calculate grand total
+      const grandTotal = Object.keys(marks).reduce((total, subject) => {
+        return total + calculateTotal(subject);
+      }, 0);
+      
+      // Create marks record
+      const marksRecord = {
+        id: crypto.randomUUID(),
+        examId: scanResult.examId,
+        studentId: scanResult.studentId,
+        marks: JSON.stringify(marks),
+        totalMarks: grandTotal,
+        recordedBy: userId,
+        recordedAt: new Date(),
+        notes: `Marks for ${scanResult.examName || 'exam'}`
+      };
+      
+      // Save to database (assuming we add a marks table to our schema)
+      // For now, we'll just log it
+      console.log('Saving marks:', marksRecord);
+      
+      // Show success message
+      alert(`Marks saved successfully! Total: ${grandTotal}/250`);
+      
+      // Reset form
+      setShowMarkEntry(false);
+      setScanResult(null);
+      setMarks({
+        java: { q1: '', q2: '', q3: '', total: '0' },
+        cpp: { q1: '', q2: '', q3: '', total: '0' },
+        python: { q1: '', q2: '', q3: '', total: '0' },
+        javascript: { q1: '', q2: '', q3: '', total: '0' },
+        os: { q1: '', q2: '', q3: '', total: '0' }
+      });
+    } catch (err) {
+      console.error('Error saving marks:', err);
+      setError('Failed to save marks. Please try again.');
+    }
+  };
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="relative w-full max-w-md">
-        {scanning ? (
+    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="p-4">
+        <h2 className="text-xl font-semibold mb-4">Exam Barcode Scanner</h2>
+        
+        {error && (
+          <div className="bg-red-100 text-red-700 p-3 rounded-md mb-4">
+            {error}
+          </div>
+        )}
+        
+        {showMarkEntry && scanResult ? (
+          <div className="bg-white rounded-lg">
+            <div className="mb-4 p-4 bg-green-50 rounded-lg">
+              <h3 className="text-lg font-semibold mb-2">Enter Marks for {scanResult.studentId}</h3>
+              <p className="text-sm text-gray-600 mb-2">Exam: {scanResult.examName}</p>
+              <p className="text-xs text-gray-500">Barcode: {scanResult.code}</p>
+            </div>
+            
+            <div className="mb-6">
+              <div className="grid grid-cols-1 gap-4">
+                {Object.keys(marks).map((subject) => (
+                  <div key={subject} className="border rounded-lg p-4">
+                    <h4 className="font-medium mb-3 capitalize">{subject === 'os' ? 'Operating Systems & Lab' : subject}</h4>
+                    <div className="grid grid-cols-3 gap-3 mb-2">
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          10 Mark Question (max 10)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="10"
+                          value={marks[subject].q1}
+                          onChange={(e) => handleMarkChange(subject, 'q1', e.target.value)}
+                          className="w-full px-3 py-2 border rounded-md"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          4 Mark Questions (max 16)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="16"
+                          value={marks[subject].q2}
+                          onChange={(e) => handleMarkChange(subject, 'q2', e.target.value)}
+                          className="w-full px-3 py-2 border rounded-md"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          3 Mark Questions (max 24)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="24"
+                          value={marks[subject].q3}
+                          onChange={(e) => handleMarkChange(subject, 'q3', e.target.value)}
+                          className="w-full px-3 py-2 border rounded-md"
+                        />
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-medium">Total: {calculateTotal(subject)}/50</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex justify-between items-center border-t pt-4">
+              <div className="text-lg font-medium">
+                Grand Total: {Object.keys(marks).reduce((total, subject) => total + calculateTotal(subject), 0)}/250
+              </div>
+              <div className="space-x-3">
+                <button
+                  onClick={() => {
+                    setShowMarkEntry(false);
+                    setScanResult(null);
+                  }}
+                  className="px-4 py-2 border rounded-md"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitMarks}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md"
+                >
+                  Save Marks
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : scanning ? (
           <>
             <div className="relative aspect-square w-full bg-black rounded-lg overflow-hidden">
               <video
                 ref={videoRef}
                 className="absolute inset-0 w-full h-full object-cover"
-                muted
                 playsInline
-                autoPlay
-              />
+                muted
+              ></video>
               <canvas
                 ref={canvasRef}
-                className="absolute inset-0 w-full h-full opacity-0"
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-2/3 h-2/3 border-2 border-white/70 rounded-lg flex items-center justify-center">
-                  <div className="w-full h-full relative">
-                    {/* Scanning animation */}
+                className="absolute inset-0 w-full h-full object-cover opacity-0"
+              ></canvas>
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-2/3 h-2/3 border-2 border-white rounded-lg relative">
                     <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 animate-scan"></div>
                   </div>
                 </div>

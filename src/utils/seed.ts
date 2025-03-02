@@ -35,8 +35,8 @@ export async function seedDatabase(): Promise<void> {
     const exams: Exam[] = [
       {
         id: '1',
-        title: 'Mathematics Final Exam',
-        subject: 'Mathematics',
+        title: 'Java Programming Final Exam',
+        subject: 'Java',
         date: new Date().toISOString(),
         expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
         createdAt: new Date(),
@@ -44,8 +44,8 @@ export async function seedDatabase(): Promise<void> {
       },
       {
         id: '2',
-        title: 'Physics Midterm',
-        subject: 'Physics',
+        title: 'C++ Programming Midterm',
+        subject: 'C++',
         date: new Date().toISOString(),
         expiryDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(), // 15 days from now
         createdAt: new Date(),
@@ -53,8 +53,8 @@ export async function seedDatabase(): Promise<void> {
       },
       {
         id: '3',
-        title: 'Computer Science Exam',
-        subject: 'Computer Science',
+        title: 'Python Programming Exam',
+        subject: 'Python',
         date: new Date().toISOString(),
         expiryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
         createdAt: new Date(),
@@ -62,7 +62,25 @@ export async function seedDatabase(): Promise<void> {
       },
       {
         id: '4',
-        title: 'Biology Final',
+        title: 'JavaScript Fundamentals',
+        subject: 'JavaScript',
+        date: new Date().toISOString(),
+        expiryDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 days from now
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: '5',
+        title: 'Operating Systems & Lab',
+        subject: 'Operating Systems & Lab',
+        date: new Date().toISOString(),
+        expiryDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString(), // 20 days from now
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: '6',
+        title: 'Expired Exam',
         subject: 'Biology',
         date: new Date().toISOString(),
         expiryDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago (expired)
@@ -75,7 +93,7 @@ export async function seedDatabase(): Promise<void> {
     const barcodes: Barcode[] = [
       {
         id: '1',
-        code: 'MATH2023001',
+        code: 'JAV2023001',
         examId: '1',
         studentId: 'STU001',
         isValid: true,
@@ -84,7 +102,7 @@ export async function seedDatabase(): Promise<void> {
       },
       {
         id: '2',
-        code: 'MATH2023002',
+        code: 'JAV2023002',
         examId: '1',
         studentId: 'STU002',
         isValid: true,
@@ -93,7 +111,7 @@ export async function seedDatabase(): Promise<void> {
       },
       {
         id: '3',
-        code: 'PHYS2023001',
+        code: 'C++2023001',
         examId: '2',
         studentId: 'STU001',
         isValid: true,
@@ -102,7 +120,7 @@ export async function seedDatabase(): Promise<void> {
       },
       {
         id: '4',
-        code: 'PHYS2023002',
+        code: 'C++2023002',
         examId: '2',
         studentId: 'STU003',
         isValid: false, // Invalid barcode for testing
@@ -111,7 +129,7 @@ export async function seedDatabase(): Promise<void> {
       },
       {
         id: '5',
-        code: 'CS2023001',
+        code: 'PYT2023001',
         examId: '3',
         studentId: 'STU004',
         isValid: true,
@@ -120,7 +138,7 @@ export async function seedDatabase(): Promise<void> {
       },
       {
         id: '6',
-        code: 'CS2023002',
+        code: 'PYT2023002',
         examId: '3',
         studentId: 'STU005',
         isValid: true,
@@ -129,9 +147,27 @@ export async function seedDatabase(): Promise<void> {
       },
       {
         id: '7',
-        code: 'BIO2023001',
-        examId: '4', // Expired exam
+        code: 'JS2023001',
+        examId: '4',
         studentId: 'STU006',
+        isValid: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: '8',
+        code: 'OS2023001',
+        examId: '5',
+        studentId: 'STU007',
+        isValid: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: '9',
+        code: 'BIO2023001',
+        examId: '6', // Expired exam
+        studentId: 'STU008',
         isValid: true, // Valid barcode but expired exam
         createdAt: new Date(),
         updatedAt: new Date()

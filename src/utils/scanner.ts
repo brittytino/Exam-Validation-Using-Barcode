@@ -155,6 +155,7 @@ export async function processScan(
   message: string;
   scanLog?: ScanLog;
   examName?: string;
+  studentId?: string;
 }> {
   try {
     // Validate the barcode
@@ -185,7 +186,8 @@ export async function processScan(
       success: true,
       message: validationResult.message,
       scanLog,
-      examName: validationResult.exam?.title
+      examName: validationResult.exam?.title,
+      studentId: validationResult.barcode?.studentId
     };
   } catch (error) {
     console.error('Process scan error:', error);
