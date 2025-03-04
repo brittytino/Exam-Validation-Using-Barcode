@@ -177,10 +177,32 @@ export async function processScan(
     };
     
     // Save the scan log to the database
-    await db.scanLogs.add(scanLog);
-    
-    // Add to sync queue
-    await addToSyncQueue('create', 'scanLogs', scanLog.id, scanLog);
+    try {
+      await db.scanLogs.add(scanLog);
+      
+      // Also save to localStorage as a backup
+      try {
+        const existingLogs = JSON.parse(localStorage.getItem('scanLogs') || '[]');
+        existingLogs.push(scanLog);
+        localStorage.setItem('scanLogs', JSON.stringify(existingLogs));
+      } catch (localStorageError) {
+        console.warn('Failed to save scan log to localStorage:', localStorageError);
+      }
+      
+      // Add to sync queue
+      await addToSyncQueue('create', 'scanLogs', scanLog.id, scanLog);
+    } catch (dbError) {
+      console.error('Error saving to IndexedDB, falling back to localStorage:', dbError);
+      
+      // Fallback to localStorage only
+      try {
+        const existingLogs = JSON.parse(localStorage.getItem('scanLogs') || '[]');
+        existingLogs.push(scanLog);
+        localStorage.setItem('scanLogs', JSON.stringify(existingLogs));
+      } catch (fallbackError) {
+        console.error('Fallback to localStorage also failed:', fallbackError);
+      }
+    }
     
     return {
       success: true,

@@ -160,8 +160,10 @@ export async function saveExamMarks(
   notes?: string
 ): Promise<string> {
   try {
+    // Generate a unique ID for the marks record
     const id = crypto.randomUUID();
     
+    // Create the exam marks object
     const examMarks: ExamMarks = {
       id,
       examId,
@@ -174,12 +176,81 @@ export async function saveExamMarks(
       notes
     };
     
+    // Save to IndexedDB
     await db.examMarks.add(examMarks);
+    
+    // Also save to localStorage as a backup
+    try {
+      const existingMarks = JSON.parse(localStorage.getItem('examMarks') || '[]');
+      existingMarks.push(examMarks);
+      localStorage.setItem('examMarks', JSON.stringify(existingMarks));
+    } catch (localStorageError) {
+      console.warn('Failed to save to localStorage, continuing with IndexedDB only:', localStorageError);
+    }
+    
+    // Add to sync queue for future syncing
     await addToSyncQueue('create', 'examMarks', id, examMarks);
     
     return id;
   } catch (error) {
     console.error('Error saving exam marks:', error);
-    throw new Error('Failed to save exam marks');
+    
+    // Fallback to localStorage if IndexedDB fails
+    try {
+      const id = crypto.randomUUID();
+      const examMarks = {
+        id,
+        examId,
+        studentId,
+        marks: JSON.stringify(marksData),
+        totalMarks,
+        recordedBy,
+        recordedAt: new Date(),
+        syncStatus: 'pending',
+        notes
+      };
+      
+      const existingMarks = JSON.parse(localStorage.getItem('examMarks') || '[]');
+      existingMarks.push(examMarks);
+      localStorage.setItem('examMarks', JSON.stringify(existingMarks));
+      
+      return id;
+    } catch (fallbackError) {
+      console.error('Fallback to localStorage also failed:', fallbackError);
+      throw new Error('Failed to save exam marks to any storage mechanism');
+    }
+  }
+}
+
+// Function to get exam marks by exam ID and student ID
+export async function getExamMarks(examId: string, studentId: string): Promise<ExamMarks | null> {
+  try {
+    // Try to get from IndexedDB first
+    const marks = await db.examMarks
+      .where('examId')
+      .equals(examId)
+      .and(item => item.studentId === studentId)
+      .first();
+    
+    if (marks) {
+      return marks;
+    }
+    
+    // If not found in IndexedDB, try localStorage
+    try {
+      const storedMarks = localStorage.getItem('examMarks');
+      if (storedMarks) {
+        const allMarks = JSON.parse(storedMarks) as ExamMarks[];
+        const match = allMarks.find(m => m.examId === examId && m.studentId === studentId);
+        return match || null;
+      }
+    } catch (localStorageError) {
+      console.warn('Failed to read from localStorage:', localStorageError);
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting exam marks:', error);
+    return null;
   }
 }

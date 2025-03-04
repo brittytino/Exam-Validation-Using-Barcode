@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BarcodeScanner, processScan } from '../utils/scanner';
 import { getCurrentUser } from '../utils/auth';
-import { db, saveExamMarks } from '../db/schema';
+import { db, saveExamMarks, getExamMarks } from '../db/schema';
 import { Camera, RefreshCw, Check, X, AlertTriangle, Keyboard } from 'lucide-react';
 
 const ScannerComponent: React.FC = () => {
@@ -24,6 +24,7 @@ const ScannerComponent: React.FC = () => {
   const [totalMarks, setTotalMarks] = useState(0);
   const [savingMarks, setSavingMarks] = useState(false);
   const [marksSaved, setMarksSaved] = useState(false);
+  const [examId, setExamId] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -64,6 +65,7 @@ const ScannerComponent: React.FC = () => {
     setExamName(null);
     setStudentId(null);
     setSubject(null);
+    setExamId(null);
     setShowMarkEntry(false);
     setMarksSaved(false);
     
@@ -123,9 +125,27 @@ const ScannerComponent: React.FC = () => {
         setStudentId(processResult.studentId);
       }
       
+      if (processResult.scanLog?.examId) {
+        setExamId(processResult.scanLog.examId);
+      }
+      
       // Show mark entry form if scan is valid
       if (processResult.scanLog?.status === 'valid') {
         setShowMarkEntry(true);
+        
+        // Check if marks already exist for this exam and student
+        if (examId && studentId) {
+          const existingMarks = await getExamMarks(examId, studentId);
+          if (existingMarks) {
+            try {
+              const parsedMarks = JSON.parse(existingMarks.marks);
+              setMarks(parsedMarks);
+              setTotalMarks(existingMarks.totalMarks);
+            } catch (e) {
+              console.error('Error parsing existing marks:', e);
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Error processing scan:', error);
@@ -171,7 +191,7 @@ const ScannerComponent: React.FC = () => {
   };
 
   const handleSaveMarks = async () => {
-    if (!userId || !scanResult || !subject || !studentId) {
+    if (!userId || !scanResult || !subject || !studentId || !examId) {
       setError('Missing required information');
       return;
     }
@@ -180,16 +200,9 @@ const ScannerComponent: React.FC = () => {
     setError(null);
     
     try {
-      // Get exam ID from barcode
-      const barcode = await db.barcodes.where('code').equals(scanResult).first();
-      
-      if (!barcode) {
-        throw new Error('Barcode not found');
-      }
-      
       // Save marks to database
       await saveExamMarks(
-        barcode.examId,
+        examId,
         studentId,
         marks,
         totalMarks,
@@ -214,6 +227,7 @@ const ScannerComponent: React.FC = () => {
     setExamName(null);
     setStudentId(null);
     setSubject(null);
+    setExamId(null);
     setShowMarkEntry(false);
     setMarksSaved(false);
     setError(null);
