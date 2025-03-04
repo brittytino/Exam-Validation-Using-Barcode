@@ -44,8 +44,8 @@ export async function seedDatabase(): Promise<void> {
       },
       {
         id: '2',
-        title: 'C++ Programming Midterm',
-        subject: 'C++',
+        title: 'PHP Programming Midterm',
+        subject: 'PHP',
         date: new Date().toISOString(),
         expiryDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(), // 15 days from now
         createdAt: new Date(),
@@ -111,7 +111,7 @@ export async function seedDatabase(): Promise<void> {
       },
       {
         id: '3',
-        code: 'C++2023001',
+        code: 'PHP2023001',
         examId: '2',
         studentId: 'STU001',
         isValid: true,
@@ -120,7 +120,7 @@ export async function seedDatabase(): Promise<void> {
       },
       {
         id: '4',
-        code: 'C++2023002',
+        code: 'PHP2023002',
         examId: '2',
         studentId: 'STU003',
         isValid: false, // Invalid barcode for testing

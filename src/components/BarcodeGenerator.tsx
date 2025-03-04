@@ -19,7 +19,7 @@ const BarcodeGenerator: React.FC = () => {
   // Predefined subjects
   const predefinedSubjects = [
     'Java',
-    'C++',
+    'PHP',
     'Python',
     'JavaScript',
     'Operating Systems & Lab'

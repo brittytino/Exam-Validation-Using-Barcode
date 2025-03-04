@@ -84,9 +84,8 @@ const Dashboard: React.FC = () => {
                   <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
                     <li>10 mark questions: 1 question × 10 marks = 10 marks</li>
                     <li>4 mark questions: 4 questions × 4 marks = 16 marks</li>
-                    <li>3 mark questions: 8 questions × 3 marks = 24 marks</li>
+                    <li>8 mark questions: 3 questions × 8 marks = 24 marks</li>
                     <li>Total per subject: 50 marks</li>
-                    <li>Grand total (5 subjects): 250 marks</li>
                   </ul>
                 </div>
                 <div className="mt-4 text-center">
@@ -169,7 +168,7 @@ const Dashboard: React.FC = () => {
                   <ul className="list-disc pl-5 space-y-1">
                     <li>Offline-first architecture - works without internet connection</li>
                     <li>Real-time barcode scanning and validation</li>
-                    <li>Mark entry system for 5 subjects with standardized marking scheme</li>
+                    <li>Subject-specific mark entry system with standardized marking scheme</li>
                     <li>Secure authentication system</li>
                     <li>Background synchronization when online</li>
                     <li>Comprehensive scan history and reporting</li>
@@ -180,7 +179,7 @@ const Dashboard: React.FC = () => {
                     <li>Log in with your credentials</li>
                     <li>Navigate to the Scan tab</li>
                     <li>Position the exam barcode within the scanner frame</li>
-                    <li>For valid barcodes, enter marks for each subject</li>
+                    <li>For valid barcodes, enter marks for the specific subject</li>
                     <li>View validation results and scan history</li>
                     <li>Sync data when internet connection is available</li>
                   </ol>
@@ -190,16 +189,16 @@ const Dashboard: React.FC = () => {
                   <ul className="list-disc pl-5 space-y-1">
                     <li>10 mark questions: 1 question × 10 marks = 10 marks</li>
                     <li>4 mark questions: 4 questions × 4 marks = 16 marks</li>
-                    <li>3 mark questions: 8 questions × 3 marks = 24 marks</li>
+                    <li>8 mark questions: 3 questions × 8 marks = 24 marks</li>
                     <li>Total per subject: 50 marks</li>
                   </ul>
                   
                   <h3 className="text-md font-medium mt-4 mb-2">Test Barcodes</h3>
                   <p>For testing purposes, you can manually enter these codes:</p>
                   <ul className="list-disc pl-5 space-y-1 font-mono text-xs">
-                    <li>MATH2023001 - Valid Mathematics exam</li>
-                    <li>PHYS2023002 - Invalid Physics exam</li>
-                    <li>BIO2023001 - Expired Biology exam</li>
+                    <li>JAV2023001 - Valid Java exam</li>
+                    <li>PHP2023002 - Invalid PHP exam</li>
+                    <li>PYT2023001 - Valid Python exam</li>
                   </ul>
                   
                   <p className="mt-4 text-xs text-gray-500">
@@ -295,7 +294,7 @@ const Dashboard: React.FC = () => {
                   <li>Ensure good lighting for better scanning</li>
                   <li>Hold the device steady while scanning</li>
                   <li>Manual entry is available if scanning fails</li>
-                  <li>Enter marks for all 5 subjects after validation</li>
+                  <li>Each barcode is subject-specific - only enter marks for that subject</li>
                 </ul>
               </div>
             </div>
